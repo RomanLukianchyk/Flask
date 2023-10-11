@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Driver List</title>
+</head>
+<body>
+    <h1>Список гонщиков</h1>
+    <ul>
+        {% for abbreviation, (full_name, team) in data.items() %}
+            <li>{{ abbreviation }} | {{ full_name }} | {{ team }}</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

@@ -22,22 +22,22 @@ def main_cli(files, sort_order=None, driver_name=None, list_drivers=False):
         return
 
 
-
     if list_drivers:
         abbreviations = read_abbreviation_file(files)
         print_driver_codes_and_names(abbreviations)
-        return
-
-    if not best_racers:
-        print("Лучшее время для каждого гонщика:")
-        print_report(invalid_racers)
-        return
-    else:
-        print("Лучшее время:")
-        print_report(best_racers)
-        if invalid_racers:
-            print("Гонщики с неправильным временем:")
-            print_report(invalid_racers)
+        return abbreviations
+    return best_racers, invalid_racers
+    #
+    # if not best_racers:
+    #     print("Лучшее время для каждого гонщика:")
+    #     print_report(invalid_racers)
+    #     return
+    # else:
+    #     print("Лучшее время:")
+    #     print_report(best_racers)
+    #     if invalid_racers:
+    #         print("Гонщики с неправильным временем:")
+    #         print_report(invalid_racers)
 
 
 
