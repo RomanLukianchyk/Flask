@@ -1,0 +1,114 @@
+---
+swagger: '2.0'
+info:
+  title: 'Race Report API'
+  description: 'API for accessing race report data'
+  version: '1.0'
+host: 'http://127.0.0.1:5000/'
+basePath: '/'
+schemes:
+  - 'http'
+tags:
+  - name: 'Report'
+    description: 'API operations for generating race reports'
+paths:
+  /api/v1/report/:
+    get:
+      tags:
+        - 'Report'
+      summary: 'Get Race Report'
+      description: 'This endpoint returns a race report based on version and format.'
+      parameters:
+        - name: 'version'
+          in: 'query'
+          type: 'integer'
+          required: true
+          description: 'API version (e.g., 1)'
+        - name: 'format'
+          in: 'query'
+          type: 'string'
+          required: true
+          description: 'Response format (JSON, XML)'
+      responses:
+        200:
+          description: 'Successful response'
+          schema:
+            type: 'object'
+            properties:
+              best_racers:
+                type: 'object'
+                description: 'Best racers data'
+              invalid_racers:
+                type: 'object'
+                description: 'Invalid racers data'
+        400:
+          description: 'Bad Request'
+    parameters:
+      - name: version
+        in: query
+        type: integer
+        required: true
+        description: 'API version (e.g., 1)'
+      - name: format
+        in: query
+        type: string
+        required: true
+        description: 'Response format (JSON, XML)'
+
+  /report:
+    get:
+      tags:
+        - 'Report'
+      summary: 'Show Common Report'
+      description: 'This endpoint renders a common HTML report.'
+      responses:
+        200:
+          description: 'Successful response'
+    parameters:
+      - name: order
+        in: query
+        type: string
+        required: false
+        description: 'Order for the report (asc, desc)'
+
+  /report/drivers:
+    get:
+      tags:
+        - 'Report'
+      summary: 'Show Report'
+      description: 'This endpoint renders an ordered HTML report.'
+      responses:
+        200:
+          description: 'Successful response'
+    parameters:
+      - name: order
+        in: query
+        type: string
+        required: false
+        description: 'Order for the report (asc, desc)'
+
+  /report/driver:
+    get:
+      tags:
+        - 'Report'
+      summary: 'Show Driver Report'
+      description: 'This endpoint renders an HTML report for a specific driver.'
+      responses:
+        200:
+          description: 'Successful response'
+    parameters:
+      - name: driver_id
+        in: query
+        type: string
+        required: false
+        description: 'Driver ID (e.g., SVF)'
+
+  /driver_list:
+    get:
+      tags:
+        - 'Report'
+      summary: 'Show Driver List'
+      description: 'This endpoint renders a list of drivers in HTML.'
+      responses:
+        200:
+          description: 'Successful response'
