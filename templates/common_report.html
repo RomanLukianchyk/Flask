@@ -7,14 +7,14 @@
     <h1>Common Report</h1>
     <h2>Лучшее время:</h2>
     <ul>
-        {% for racer_key, (formatted_time, full_name, team) in best_racers.items() %}
-            <li>{{ full_name }} | {{ team }} | {{ formatted_time }}</li>
+        {% for racer in best_racers %}
+            <li>{{ racer.full_name }} | {{ racer.team }} | {{ racer.formatted_time }}</li>
         {% endfor %}
     </ul>
     <h2>Гонщики с неправильным временем:</h2>
     <ul>
-        {% for racer_key, (error_message, full_name, team) in invalid_racers.items() %}
-            <li>{{ error_message }} | {{ full_name }} | {{ team }}</li>
+        {% for racer in invalid_racers %}
+            <li>{{ racer.error_message }} | {{ racer.full_name }} | {{ racer.team }}</li>
         {% endfor %}
     </ul>
 </body>

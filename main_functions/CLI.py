@@ -7,7 +7,7 @@ from main_functions.printing_report import print_report, print_driver_codes_and_
 
 
 def main_cli(files, sort_order=None, driver_name=None, list_drivers=False):
-    print(f"Используем папку: {files}")
+    # print(f"Используем папку: {files}")
 
     try:
         if sort_order is None:
@@ -24,21 +24,9 @@ def main_cli(files, sort_order=None, driver_name=None, list_drivers=False):
 
     if list_drivers:
         abbreviations = read_abbreviation_file(files)
-        print_driver_codes_and_names(abbreviations)
+        # print_driver_codes_and_names(abbreviations)
         return abbreviations
     return best_racers, invalid_racers
-    #
-    # if not best_racers:
-    #     print("Лучшее время для каждого гонщика:")
-    #     print_report(invalid_racers)
-    #     return
-    # else:
-    #     print("Лучшее время:")
-    #     print_report(best_racers)
-    #     if invalid_racers:
-    #         print("Гонщики с неправильным временем:")
-    #         print_report(invalid_racers)
-
 
 
 # def parse_arguments():

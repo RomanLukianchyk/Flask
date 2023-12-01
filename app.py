@@ -1,9 +1,10 @@
-from pathlib import Path
-from main_functions.CLI import main_cli
 from flask import Flask, request, render_template, jsonify
 from flask_restful import Api, Resource, reqparse
 from flasgger import Swagger
 import xml.etree.ElementTree as ET
+from data.database import BestRacer, InvalidRacer, RacerList
+
+
 
 app = Flask(__name__)
 api = Api(app)
@@ -18,6 +19,7 @@ swagger_template = {
 
 swagger = Swagger(app, template=swagger_template)
 
+
 parser = reqparse.RequestParser()
 parser.add_argument('version', type=int, help='API version', required=True)
 parser.add_argument('format', type=str, help='Response format (JSON, XML)', required=True)
@@ -26,69 +28,80 @@ parser.add_argument('format', type=str, help='Response format (JSON, XML)', requ
 class ReportResource(Resource):
     def get(self):
         """
-        Get Race Report
-        ---
-        tags:
-          - Report
-        parameters:
-          - name: version
-            in: query
-            type: integer
-            required: true
-            description: API version (e.g., 1)
-          - name: format
-            in: query
-            type: string
-            required: true
-            description: Response format (JSON, XML)
-        responses:
-          '200':
-            description: Successful response
-            schema:
-              type: object
-              properties:
-                best_racers:
-                  type: object
-                  description: Best racers data
-                invalid_racers:
-                  type: object
-                  description: Invalid racers data
-          '400':
-            description: Bad Request
-        """
+             Get Race Report
+             ---
+             tags:
+               - Report
+             parameters:
+               - name: version
+                 in: query
+                 type: integer
+                 required: true
+                 description: API version (e.g., 1)
+               - name: format
+                 in: query
+                 type: string
+                 required: true
+                 description: Response format (JSON, XML)
+             responses:
+               '200':
+                 description: Successful response
+                 schema:
+                   type: object
+                   properties:
+                     best_racers:
+                       type: object
+                       description: Best racers data
+                     invalid_racers:
+                       type: object
+                       description: Invalid racers data
+               '400':
+                 description: Bad Request
+             """
         version = int(request.args.get('version', 1))
         format = request.args.get('format', 'JSON')
 
+        if version != 1:
+            return "Unsupported API version"
         if version == 1:
-            best_racers, invalid_racers = main_cli(files=Path("data"), sort_order=None)
+            best_racers = BestRacer.select()
+            invalid_racers = InvalidRacer.select()
+
             if format == 'JSON':
-                return jsonify({"best_racers": best_racers, "invalid_racers": invalid_racers})
+                best_racers_data = [{'formatted_time': racer.formatted_time,
+                                     'full_name': racer.full_name,
+                                     'team': racer.team} for racer in best_racers]
+                invalid_racers_data = [{'error_message': racer.error_message,
+                                        'full_name': racer.full_name,
+                                        'team': racer.team} for racer in invalid_racers]
+
+                return jsonify({"best_racers": best_racers_data, "invalid_racers": invalid_racers_data})
             elif format == 'XML':
                 root = ET.Element("RaceData")
 
                 best_racers_element = ET.Element("BestRacers")
-                for racer_key, (formatted_time, full_name, team) in best_racers.items():
+                for racer in best_racers:
                     racer_element = ET.Element("Racer")
                     formatted_time_element = ET.Element("FormattedTime")
-                    formatted_time_element.text = formatted_time
+                    formatted_time_element.text = racer.formatted_time
                     full_name_element = ET.Element("FullName")
-                    full_name_element.text = full_name
+                    full_name_element.text = racer.full_name
                     team_element = ET.Element("Team")
-                    team_element.text = team
+                    team_element.text = racer.team
                     racer_element.append(formatted_time_element)
                     racer_element.append(full_name_element)
                     racer_element.append(team_element)
                     best_racers_element.append(racer_element)
 
                 invalid_racers_element = ET.Element("InvalidRacers")
-                for racer_key, (error_message, full_name, team) in invalid_racers.items():
+                for racer in invalid_racers:
                     racer_element = ET.Element("Racer")
                     error_message_element = ET.Element("ErrorMessage")
-                    error_message_element.text = error_message
+                    error_message_element.text = racer.error_message
                     full_name_element = ET.Element("FullName")
-                    full_name_element.text = full_name
+                    full_name_element.text = racer.full_name
                     team_element = ET.Element("Team")
-                    team_element.text = team
+                    team_element.text = racer.team
                     racer_element.append(error_message_element)
                     racer_element.append(full_name_element)
                     racer_element.append(team_element)
@@ -133,8 +146,7 @@ def show_common_report():
         required: false
         description: Order for the report (asc, desc)
     """
-    best_racers, invalid_racers = main_cli(files=Path("data"), sort_order=None)
-    return render_template('common_report.html', best_racers=best_racers, invalid_racers=invalid_racers)
+    return render_template('common_report.html', best_racers=BestRacer.select(), invalid_racers=InvalidRacer.select())
 
 
 @app.route('/report/drivers')
@@ -157,7 +169,14 @@ def show_report():
         description: Order for the report (asc, desc)
     """
     order = request.args.get('order', 'asc')
-    best_racers, invalid_racers = main_cli(files=Path("data"), sort_order=order)
+    if order == 'asc':
+        best_racers = BestRacer.select().order_by(BestRacer.formatted_time)
+    elif order == 'desc':
+        best_racers = BestRacer.select().order_by(BestRacer.formatted_time.desc())
+    else:
+        best_racers = BestRacer.select()
+
+    invalid_racers = InvalidRacer.select()
     return render_template('ordered_report.html', best_racers=best_racers, invalid_racers=invalid_racers)
 
 
@@ -181,9 +200,15 @@ def show_driver():
         description: Driver ID (e.g., SVF)
     """
     driver_id = request.args.get('driver_id')
-    best_racers, invalid_racers = main_cli(files=Path("data"), driver_name=driver_id)
-    if not driver_id:
-        return "Usege: /report/driver?driver_id=SVF"
+    try:
+        mapping = RacerList.get(RacerList.abbreviation == driver_id)
+    except RacerList.DoesNotExist as e:
+        return f"Driver not found. Error: {e}"
+
+    full_name = mapping.full_name
+    best_racers = BestRacer.select().where(BestRacer.full_name == full_name)
+    invalid_racers = InvalidRacer.select().where(InvalidRacer.full_name == full_name)
+
     return render_template('driver_report.html', best_racers=best_racers, invalid_racers=invalid_racers)
 
 
@@ -200,8 +225,8 @@ def show_driver_list():
       '200':
         description: Successful response
     """
-    data = main_cli(files=Path("data"), list_drivers=True)
-    return render_template('driver_list.html', data=data)
+    drivers = RacerList.select()
+    return render_template('driver_list.html', data=drivers)
 
 
 if __name__ == '__main__':
