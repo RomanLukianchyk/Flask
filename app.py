@@ -3,8 +3,7 @@ from flask_restful import Api, Resource, reqparse
 from flasgger import Swagger
 import xml.etree.ElementTree as ET
 from data.database import BestRacer, InvalidRacer, RacerList
-
-
+from race_report_service import RaceReportService
 
 app = Flask(__name__)
 api = Api(app)
@@ -26,6 +25,50 @@ parser.add_argument('format', type=str, help='Response format (JSON, XML)', requ
 
 
 class ReportResource(Resource):
+    def generate_xml_response(self, best_racers, invalid_racers):
+        root = ET.Element("RaceData")
+
+        best_racers_element = ET.Element("BestRacers")
+        for racer in best_racers:
+            racer_element = ET.Element("Racer")
+            formatted_time_element = ET.Element("FormattedTime")
+            formatted_time_element.text = racer.formatted_time
+            full_name_element = ET.Element("FullName")
+            full_name_element.text = racer.full_name
+            team_element = ET.Element("Team")
+            team_element.text = racer.team
+            racer_element.append(formatted_time_element)
+            racer_element.append(full_name_element)
+            racer_element.append(team_element)
+            best_racers_element.append(racer_element)
+
+        invalid_racers_element = ET.Element("InvalidRacers")
+        for racer in invalid_racers:
+            racer_element = ET.Element("Racer")
+            error_message_element = ET.Element("ErrorMessage")
+            error_message_element.text = racer.error_message
+            full_name_element = ET.Element("FullName")
+            full_name_element.text = racer.full_name
+            team_element = ET.Element("Team")
+            team_element.text = racer.team
+            racer_element.append(error_message_element)
+            racer_element.append(full_name_element)
+            racer_element.append(team_element)
+            invalid_racers_element.append(racer_element)
+
+        root.append(best_racers_element)
+        root.append(invalid_racers_element)
+
+        xml_data = ET.tostring(root, encoding='utf-8')
+
+        response = app.response_class(
+            response=xml_data,
+            status=200,
+            mimetype='application/xml'
+        )
+
+        return response
+
     def get(self):
         """
              Get Race Report
@@ -64,8 +107,8 @@ class ReportResource(Resource):
         if version != 1:
             return "Unsupported API version"
         if version == 1:
-            best_racers = BestRacer.select()
-            invalid_racers = InvalidRacer.select()
+            best_racers = RaceReportService.get_best_racers()
+            invalid_racers = RaceReportService.get_invalid_racers()
 
             if format == 'JSON':
                 best_racers_data = [{'formatted_time': racer.formatted_time,
@@ -75,50 +118,12 @@ class ReportResource(Resource):
                                         'full_name': racer.full_name,
                                         'team': racer.team} for racer in invalid_racers]
 
-                return jsonify({"best_racers": best_racers_data, "invalid_racers": invalid_racers_data})
+                return jsonify({"best_racers": best_racers_data,
+                               "invalid_racers": invalid_racers_data})
             elif format == 'XML':
-                root = ET.Element("RaceData")
-
-                best_racers_element = ET.Element("BestRacers")
-                for racer in best_racers:
-                    racer_element = ET.Element("Racer")
-                    formatted_time_element = ET.Element("FormattedTime")
-                    formatted_time_element.text = racer.formatted_time
-                    full_name_element = ET.Element("FullName")
-                    full_name_element.text = racer.full_name
-                    team_element = ET.Element("Team")
-                    team_element.text = racer.team
-                    racer_element.append(formatted_time_element)
-                    racer_element.append(full_name_element)
-                    racer_element.append(team_element)
-                    best_racers_element.append(racer_element)
-
-                invalid_racers_element = ET.Element("InvalidRacers")
-                for racer in invalid_racers:
-                    racer_element = ET.Element("Racer")
-                    error_message_element = ET.Element("ErrorMessage")
-                    error_message_element.text = racer.error_message
-                    full_name_element = ET.Element("FullName")
-                    full_name_element.text = racer.full_name
-                    team_element = ET.Element("Team")
-                    team_element.text = racer.team
-                    racer_element.append(error_message_element)
-                    racer_element.append(full_name_element)
-                    racer_element.append(team_element)
-                    invalid_racers_element.append(racer_element)
-
-                root.append(best_racers_element)
-                root.append(invalid_racers_element)
-
-                xml_data = ET.tostring(root, encoding='utf-8')
-
-                response = app.response_class(
-                    response=xml_data,
-                    status=200,
-                    mimetype='application/xml'
-                )
-
-                return response
+                xml_response = self.generate_xml_response(
+                    best_racers, invalid_racers)
+                return xml_response
 
         else:
             return "Unsupported API version"
@@ -135,18 +140,13 @@ def show_common_report():
     tags:
       - Report
     summary: Show Common Report
-    description: This endpoint renders a common HTML report.
+    description: This endpoint renders a common report.
     responses:
       '200':
         description: Successful response
-    parameters:
-      - name: order
-        in: query
-        type: string
-        required: false
-        description: Order for the report (asc, desc)
     """
-    return render_template('common_report.html', best_racers=BestRacer.select(), invalid_racers=InvalidRacer.select())
+    return render_template('common_report.html', best_racers=BestRacer.select(
+    ), invalid_racers=InvalidRacer.select())
 
 
 @app.route('/report/drivers')
@@ -177,7 +177,8 @@ def show_report():
         best_racers = BestRacer.select()
 
     invalid_racers = InvalidRacer.select()
-    return render_template('ordered_report.html', best_racers=best_racers, invalid_racers=invalid_racers)
+    return render_template(
+        'ordered_report.html', best_racers=best_racers, invalid_racers=invalid_racers)
 
 
 @app.route('/report/driver')
@@ -200,16 +201,21 @@ def show_driver():
         description: Driver ID (e.g., SVF)
     """
     driver_id = request.args.get('driver_id')
+    if not driver_id:
+        return "Driver ID is required", 400
+
     try:
         mapping = RacerList.get(RacerList.abbreviation == driver_id)
     except RacerList.DoesNotExist as e:
-        return f"Driver not found. Error: {e}"
+        return f"Driver not found. Error: {e}", 404
 
     full_name = mapping.full_name
     best_racers = BestRacer.select().where(BestRacer.full_name == full_name)
-    invalid_racers = InvalidRacer.select().where(InvalidRacer.full_name == full_name)
+    invalid_racers = InvalidRacer.select().where(
+        InvalidRacer.full_name == full_name)
 
-    return render_template('driver_report.html', best_racers=best_racers, invalid_racers=invalid_racers)
+    return render_template(
+        'driver_report.html', best_racers=best_racers, invalid_racers=invalid_racers)
 
 
 @app.route('/driver_list')
