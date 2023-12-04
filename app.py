@@ -2,8 +2,8 @@ from flask import Flask, request, render_template, jsonify
 from flask_restful import Api, Resource, reqparse
 from flasgger import Swagger
 import xml.etree.ElementTree as ET
-from data.database import BestRacer, InvalidRacer, RacerList
-from race_report_service import RaceReportService
+from repository import ReportRepository
+from services import RaceReportService
 
 app = Flask(__name__)
 api = Api(app)
@@ -145,8 +145,8 @@ def show_common_report():
       '200':
         description: Successful response
     """
-    return render_template('common_report.html', best_racers=BestRacer.select(
-    ), invalid_racers=InvalidRacer.select())
+    report_data = ReportRepository.get_common_report()
+    return render_template('common_report.html', best_racers=report_data["best_racers"], invalid_racers=report_data["invalid_racers"])
 
 
 @app.route('/report/drivers')
@@ -169,16 +169,8 @@ def show_report():
         description: Order for the report (asc, desc)
     """
     order = request.args.get('order', 'asc')
-    if order == 'asc':
-        best_racers = BestRacer.select().order_by(BestRacer.formatted_time)
-    elif order == 'desc':
-        best_racers = BestRacer.select().order_by(BestRacer.formatted_time.desc())
-    else:
-        best_racers = BestRacer.select()
-
-    invalid_racers = InvalidRacer.select()
-    return render_template(
-        'ordered_report.html', best_racers=best_racers, invalid_racers=invalid_racers)
+    report_data = ReportRepository.get_ordered_report(order)
+    return render_template('ordered_report.html', best_racers=report_data["best_racers"], invalid_racers=report_data["invalid_racers"])
 
 
 @app.route('/report/driver')
@@ -205,17 +197,10 @@ def show_driver():
         return "Driver ID is required", 400
 
     try:
-        mapping = RacerList.get(RacerList.abbreviation == driver_id)
-    except RacerList.DoesNotExist as e:
-        return f"Driver not found. Error: {e}", 404
-
-    full_name = mapping.full_name
-    best_racers = BestRacer.select().where(BestRacer.full_name == full_name)
-    invalid_racers = InvalidRacer.select().where(
-        InvalidRacer.full_name == full_name)
-
-    return render_template(
-        'driver_report.html', best_racers=best_racers, invalid_racers=invalid_racers)
+        report_data = ReportRepository.get_driver_report(driver_id)
+        return render_template('driver_report.html', best_racers=report_data["best_racers"], invalid_racers=report_data["invalid_racers"])
+    except ValueError as e:
+        return str(e), 404
 
 
 @app.route('/driver_list')
@@ -231,7 +216,7 @@ def show_driver_list():
       '200':
         description: Successful response
     """
-    drivers = RacerList.select()
+    drivers = ReportRepository.get_driver_list()
     return render_template('driver_list.html', data=drivers)
 
 
