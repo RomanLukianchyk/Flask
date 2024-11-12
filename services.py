@@ -1,5 +1,22 @@
 from flask import render_template
+from data.database import RacerList, BestRacer, InvalidRacer
 from repository import BestRacerRepository, InvalidRacerRepository, ReportRepository
+
+
+class DriverService:
+    @staticmethod
+    def get_driver_report(driver_id):
+        try:
+            mapping = RacerList.get(RacerList.abbreviation == driver_id)
+        except RacerList.DoesNotExist as e:
+            raise ValueError(f"Водитель не найден. Ошибка: {e}")
+
+        full_name = mapping.full_name
+        return {
+            "best_racers": BestRacer.select().where(BestRacer.full_name == full_name),
+            "invalid_racers": InvalidRacer.select().where(InvalidRacer.full_name == full_name)
+        }
+
 
 
 class RaceReportService:

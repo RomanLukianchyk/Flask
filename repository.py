@@ -46,19 +46,6 @@ class ReportRepository:
         }
 
     @staticmethod
-    def get_driver_report(driver_id):
-        try:
-            mapping = RacerList.get(RacerList.abbreviation == driver_id)
-        except RacerList.DoesNotExist as e:
-            raise ValueError(f"Driver not found. Error: {e}")
-
-        full_name = mapping.full_name
-        return {
-            "best_racers": BestRacer.select().where(BestRacer.full_name == full_name),
-            "invalid_racers": InvalidRacer.select().where(InvalidRacer.full_name == full_name)
-        }
-
-    @staticmethod
     def get_driver_list():
         return RacerList.select()
 

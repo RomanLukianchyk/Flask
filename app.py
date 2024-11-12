@@ -3,7 +3,7 @@ from flask_restful import Api, Resource, reqparse
 from flasgger import Swagger
 import xml.etree.ElementTree as ET
 from repository import ReportRepository
-from services import RaceReportService
+from services import RaceReportService, DriverService
 
 app = Flask(__name__)
 api = Api(app)
@@ -197,7 +197,7 @@ def show_driver():
         return "Driver ID is required", 400
 
     try:
-        report_data = ReportRepository.get_driver_report(driver_id)
+        report_data = DriverService.get_driver_report(driver_id)
         return render_template('driver_report.html', best_racers=report_data["best_racers"], invalid_racers=report_data["invalid_racers"])
     except ValueError as e:
         return str(e), 404
